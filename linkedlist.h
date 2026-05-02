@@ -211,17 +211,14 @@ template <typename Traits>
     }
 
 template <typename Traits>
-LinkedList<Traits>::LinkedList(LinkedList &&other) noexcept // Move constructor
-        : m_pRoot(other.m_pRoot), 
-          m_pTail(other.m_pTail), 
-          m_size(other.m_size), 
-          m_comp(std::move(other.m_comp)) { // Movemos el comparador por si tiene estado
-        std::lock_guard<mutex> lock(other.m_mtx);
-        other.m_pRoot = nullptr;
-        other.m_pTail = nullptr;
-        other.m_size = 0;
-    }
+LinkedList<Traits>::LinkedList(LinkedList &&other) noexcept { // Move constructor
+    std::lock_guard<std::mutex> lock(other.m_mtx); 
 
+    this->m_pRoot = std::exchange(other.m_pRoot, nullptr);
+    this->m_pTail = std::exchange(other.m_pTail, nullptr);
+    this->m_size  = std::exchange(other.m_size, 0); 
+    this->m_comp  = std::move(other.m_comp);
+}
 template <typename Traits>
 LinkedList<Traits>::~LinkedList() {//destructor
     std::lock_guard<std::mutex> lock(m_mtx);
