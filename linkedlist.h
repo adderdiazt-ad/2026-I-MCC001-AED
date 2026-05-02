@@ -221,7 +221,7 @@ LinkedList<Traits>::LinkedList(LinkedList &&other) noexcept { // Move constructo
 }
 template <typename Traits>
 LinkedList<Traits>::~LinkedList() {//destructor
-    std::lock_guard<std::mutex> lock(m_mtx);
+    lock_guard<mutex> lock(m_mtx);
     Node* pAux = m_pRoot;
     while (pAux != nullptr) {
         Node* next = pAux->getNext(); 
