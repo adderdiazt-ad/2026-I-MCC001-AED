@@ -188,16 +188,13 @@ std::istream& operator>>(std::istream& is, LinkedList<Traits>& list) {
     typename LinkedList<Traits>::value_type value;
     Ref ref;
     char parentesis1, comma, parentesis2;
-
     if (is >> parentesis1 >> value >> comma >> ref >> parentesis2) {
-        
         if (parentesis1 == '(' && comma == ',' && parentesis2 == ')') {
             list.insert(value, ref);
         } else {
             is.setstate(std::ios::failbit);
         }
     }
-    
     return is;
 }
 
