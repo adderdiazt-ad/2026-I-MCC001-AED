@@ -118,6 +118,7 @@ public:
     forward_iterator end()   { return forward_iterator(this, nullptr); }
 
     const Node& operator[](size_t index) const {
+        unique_lock<mutex> lock(m_mtx);
         if (index >= size() ||m_pRoot == nullptr) {
             throw std::out_of_range("Index out of range");
         }
@@ -181,12 +182,22 @@ template <typename Traits>
 ostream& operator<<(ostream& os, LinkedList<Traits>& list){
     return os << list.toString();
 }
+
 template <typename Traits>
 std::istream& operator>>(std::istream& is, LinkedList<Traits>& list) {
     typename LinkedList<Traits>::value_type value;
-    Ref ref; 
-    if (is >> value >> ref) 
-        list.insert(value, ref);
+    Ref ref;
+    char parentesis1, comma, parentesis2;
+
+    if (is >> parentesis1 >> value >> comma >> ref >> parentesis2) {
+        
+        if (parentesis1 == '(' && comma == ',' && parentesis2 == ')') {
+            list.insert(value, ref);
+        } else {
+            is.setstate(std::ios::failbit);
+        }
+    }
+    
     return is;
 }
 
