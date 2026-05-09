@@ -1,4 +1,8 @@
 #include "containers/linkedlist.h"
+#include "containers/doublelinkedlist.h"
+#include "containers/circlelinkedlist.h"
+#include "containers/circledoublelinkedlist.h"
+#include "types.h"
 #include <fstream>
 
 template <typename Node>
@@ -21,8 +25,9 @@ bool IsGreaterThan(Node &node, T x){
     return node.getDataRef() > x;
 }
 
+
 void LinkedListDemo(){
-    // 
+    
     LinkedList<DescendingLinkedListTrait<TI>> list1;
     list1.insert(6, 15);
     list1.insert(2, 25);
@@ -31,6 +36,15 @@ void LinkedListDemo(){
     list1.insert(7, 55);
     cout << "Lista descendente: " << list1 << endl;
 
+    DoubleLinkedList<AscendingDoubleLinkedListTrait<TI>> listD;
+    listD.insert(4, 15);
+    listD.insert(2, 25);
+    listD.insert(6, 35);
+    listD.insert(1, 45);
+    listD.insert(5, 55);
+    cout << "Lista doblemente enlazada ascendente: " << listD << endl;
+
+
     LinkedList<AscendingLinkedListTrait<TI>> list2;
     using LI = LinkedList<AscendingLinkedListTrait<TI>>::Node;
     list2.insert(6, 15);
@@ -38,18 +52,26 @@ void LinkedListDemo(){
     list2.insert(9, 35);
     list2.insert(1, 45);
     list2.insert(7, 55);
-    cout << "Lista ascendente : " << list2 << endl;
+    cout << "Lista ascendente double : " << listD << endl;
+
+    cout << "******************Ingresa un nodo o una lista: ";
+    cin >> listD;
+    cout << " ****************-> Lista actual: " << listD << endl;
+    
+    cout << "\nLectura finalizada." << endl;
+    cout << "Estado final de la lista: " << listD << endl;
 
     list2.ForEach(AddX<LI>, 3);
-    cout << "Prueba ForEach + 3: " << endl;
-    list2.ForEach(Print<LI>, cout);
-    list2.ForEach(AddY<LI>, 10, 11);
+    cout << "******Prueba ForEach + 3: " << endl;
+    using DL = DoubleLinkedList<AscendingDoubleLinkedListTrait<TI>>::Node;
+    listD.ForEach(Print<DL>, cout);
+    listD.ForEach(AddY<DL>, 10, 11);
     cout << "Prueba ForEach + 10 + 11: " << endl;
-    list2.ForEach(Print<LI>, cout);
+    listD.ForEach(Print<DL>, cout);
     
     cout << "Prueba First That: " << endl;
-    auto it = list2.FirstThat(IsGreaterThan<LI, TI>, 6);
-    if (it != list2.end())
+    auto it = listD.FirstThat(IsGreaterThan<DL, TI>, 6);
+    if (it != listD.end())
         cout << "Primer mayor a 6   : " << *it << endl;
     cout << "Fin recorrido con iteradores" << endl;
 
@@ -100,6 +122,7 @@ void LinkedListDemo(){
     cout << "Prueba operador []: " << endl;
     cout << "Lista5 [2]: " << list5[2] << endl;
 }
+
 
 void ListsDemo(){
     LinkedListDemo();

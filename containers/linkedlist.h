@@ -5,9 +5,10 @@
 #include <cstddef>   // size_t
 #include <string>
 #include <sstream>
+#include<utility>    // move, exchange
 #include <mutex>     // mutex
 #include "general_iterator.h"
-#include "util.h"
+#include "../util.h"
 #include "../types.h"
 #include "../foreach.h"
 #include "basetrait.h"
@@ -22,7 +23,6 @@ class LinkedListForwardIterator : public general_iterator<Container,
     using Parent = general_iterator<Container, MySelf>;
     using Parent::Parent;
 public:
-    // TODO: Completar el operator++
     MySelf& operator++(){
         this->m_pNode = this->m_pNode->getNext();
         return *this;
@@ -31,35 +31,12 @@ public:
 
 // Linked List Node
 template <typename T>
-class LLNode{
+class LLNode: public general_node<T, LLNode<T>>{
 public:
-    using value_type = T;
-    using Node       = LLNode<T>;
-protected:
-    value_type m_data;
-    Ref        m_ref;
-    Node      *m_pNext;
-public:
-    LLNode(){}
-    LLNode(value_type data, Ref ref, Node *pNext = nullptr) 
-           : m_data(data), m_ref(ref), m_pNext(pNext) {}
-    virtual ~LLNode() {}
-
-    value_type      getData() const { return m_data; }
-    value_type&     getDataRef()    { return m_data; }
-    void            setData(value_type data) { m_data = data; }
-    Ref             getRef() const  { return m_ref; }
-    Ref&            getRefRef()     { return m_ref; }
-    void            setRef(Ref ref) { m_ref = ref; }
-    Node*           getNext() const { return m_pNext; }
-    Node*&          getNextRef()    { return m_pNext; }
-    void            setNext(Node *pNext) { m_pNext = pNext; }
+    using Parent = general_node<T, LLNode<T>>;
+    using Parent::Parent;
 };
 
-template <typename T>
-ostream &operator<<(ostream &os, const LLNode<T> &node){
-    return os << "(" <<node.getData() << ", " << node.getRef() << ")";
-}
 
 template <typename T>
 struct BaseLinkedListTrait : public BaseContainerTrait<T, LLNode<T>>{
@@ -87,16 +64,16 @@ public:
     using forward_iterator = LinkedListForwardIterator<MySelf>;
     // friend forward_iterator;
 
-private:
+protected:
     Node *m_pRoot = nullptr;
     Node *m_pTail = nullptr;
     size_t m_size = 0;
     Comp   m_comp;
-    mutex m_mtx;
+    mutable mutex m_mtx;
 public:
     LinkedList() {}
     LinkedList(const LinkedList &other){ // Copy constructor
-
+        scoped_lock<mutex> lock(other.m_mtx);
         Node* pTemp = other.m_pRoot;
 
         while(pTemp != nullptr){
@@ -113,16 +90,15 @@ public:
         m_size = exchange(other.m_size, 0);
 
     }
-    LinkedList& operator=(const LinkedList &other){ // Copy assignment operator
-    }
-    LinkedList& operator=(LinkedList &&other){ // Move assignment operator
-    }
+    //LinkedList& operator=(const LinkedList &other){ // Copy assignment operator
+   // //}
+    //LinkedList& operator=(LinkedList &&other){ // Move assignment operator
+    //}
     
     virtual        ~LinkedList() {
         
         scoped_lock<mutex> lock(m_mtx);
         Node* pTemp = m_pRoot;
-
         while (pTemp){
             Node* pNext = pTemp->getNext();
             delete pTemp;
@@ -135,29 +111,30 @@ public:
     }
 
     virtual void   push_front(value_type value, Ref ref) {
-        Node* pTemp = new Node(value, ref, m_pRoot);  //Se crea el Nodo temporal con los datos ingresados que apunta a m_pRoot
-        
         scoped_lock<mutex> lock(m_mtx);
+        Node* pTemp = new Node(value, ref, m_pRoot);  //Se crea el Nodo temporal con los datos ingresados que apunta a m_pRoot
         m_pRoot = pTemp;                              //Se actualiza el nodo raiz
-        if (m_size == 0)
+        if (m_size == 0) 
             m_pTail = pTemp;                          //Si la lista esta vacia la cola tambien se debe actualizar
         ++m_size;
     }
     virtual auto    pop_front() -> pair<value_type, Ref>{ 
-        
         scoped_lock<mutex> lock(m_mtx);
         if( m_pRoot ){
             Node* pTemp = m_pRoot;
             m_pRoot = m_pRoot->getNext();
             --m_size;
-            return make_pair(pTemp->getData(), pTemp->getRef());
+            auto result = make_pair(pTemp->getData(), pTemp->getRef());
+            if (!m_pRoot) 
+                m_pTail = nullptr;
+            delete pTemp;
+            return result;
         }else
             throw out_of_range("pop_front(): empty list");
     }
     virtual void    push_back(value_type value, Ref ref){
-        Node* pTemp = new Node(value, ref, nullptr);  //Como es el ultimo nodo no apunta a nada
-        
         scoped_lock<mutex> lock(m_mtx);
+        Node* pTemp = new Node(value, ref, nullptr);  //Como es el ultimo nodo no apunta a nada
         if (m_size == 0){
             m_pRoot = pTemp;
             m_pTail = pTemp; 
@@ -168,7 +145,6 @@ public:
         ++m_size;
     }
     virtual auto    pop_back() -> pair<value_type, Ref>{
-        
         scoped_lock<mutex> lock(m_mtx);
         if( !m_pRoot )
             throw out_of_range("pop_back(): empty list");
@@ -200,8 +176,8 @@ public:
         --m_size;
         return pDelete;
     }
-private:
-            void    internal_insert(Node* &pParent, const value_type &value, Ref ref);
+protected:
+    virtual void internal_insert(Node* &pParent, const value_type &value, Ref ref);
 public:
     virtual void    insert(const value_type &value, Ref ref);
     
@@ -242,7 +218,7 @@ void LinkedList<Traits>::internal_insert(Node* &pPrev, const value_type &value, 
     if(!pPrev || m_comp(value, pPrev->getDataRef())){
         pPrev = new Node(value, ref, pPrev);
         m_size++;
-        if(pPrev == m_pRoot)
+        if(pPrev->getNext() == nullptr)
             m_pTail = pPrev;
         return;
     }
@@ -251,6 +227,7 @@ void LinkedList<Traits>::internal_insert(Node* &pPrev, const value_type &value, 
 
 template <typename Traits>
 void LinkedList<Traits>::insert(const value_type &value, Ref ref){
+    scoped_lock<mutex> lock(m_mtx);
     internal_insert(m_pRoot, value, ref);
 }
 
@@ -279,20 +256,16 @@ template <typename Traits>
 istream& operator>>(istream& is, LinkedList<Traits>& list){
     using value_type = typename LinkedList<Traits>::value_type;
     string line;
-
     getline(is, line);
-
     for (char& c : line){
         if (c == '[' || c == ']' || c == '(' || c == ')' || c == ',')
             c = ' ';
     }
-
     value_type value;
     Ref ref;
     stringstream ss(line);
-
     while (ss >> value >> ref){
-        list.push_back(value, ref);
+        list.insert(value, ref);
     }
 
     return is;
