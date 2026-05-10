@@ -35,9 +35,6 @@ struct DescendingDoubleLinkedListTrait : public BaseDoubleLinkedListTrait<T>{
     using Comp = greater<T>;
 };
 
-// Reutiizar el LinkedListForwardIterator de la linked list
-
-// Backward iterator
 template <typename Container>
 class DoubleLinkedListBackwardIterator : public general_iterator<Container, 
                                         DoubleLinkedListBackwardIterator<Container>>{
@@ -72,35 +69,26 @@ public:
         this->m_pTail = exchange(other.m_pTail, nullptr);
         this->m_size = exchange(other.m_size, 0);
     }
-    ~DoubleLinkedList() {
-        scoped_lock<mutex> lock(this->m_mtx);
-        while (this->m_pRoot != nullptr) {
-            Node *pTemp = this->m_pRoot;
-            this->m_pRoot = this->m_pRoot->getNextRef();
-            delete pTemp;
-        }
-        this->m_pRoot = nullptr;
-        this->m_pTail = nullptr;
-        this->m_size = 0;
-    }
+    virtual ~DoubleLinkedList()override {}
     
     size_t size () const { return this->m_size; }
     bool isEmpty() const { return this->m_pRoot == nullptr; }
     
-    virtual void insert(const value_type &value, Ref ref) override  {
-        Parent::insert(value, ref);
+    public:
+    
+    virtual void insert(const value_type &value, Ref ref) override {
         scoped_lock<mutex> lock(this->m_mtx);
-        Node* pCurrent = this->m_pRoot;
-        Node* pPrev = nullptr;  
-        while(pCurrent){
-            pCurrent->setPrev(pPrev);
-            pPrev = pCurrent;
-            pCurrent = pCurrent->getNext();
-        }
-        // TODO: insertar la el nodo hacia adelante (como en la LinkedList)
-        // adicionalmente conectar el nodo anterior con su nuevo siguiente
-        // usar internal insert pero debe devolver el nuevo nodo creado y 
-        // el puntero al lnodo anterior
+        auto [pPrev, pCurrent] = this->find_position(value);
+        Node* pNew = new Node(value, ref, pCurrent, pPrev);
+        if (pPrev) 
+            pPrev->setNext(pNew);
+        else 
+            this->m_pRoot = pNew; 
+        if (pCurrent) 
+            pCurrent->setPrev(pNew);
+        else 
+            this->m_pTail = pNew; 
+        this->m_size++;
     }
     virtual void push_front(value_type value, Ref ref) override;
     virtual void push_back(value_type value, Ref ref)override;

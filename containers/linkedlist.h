@@ -177,7 +177,7 @@ public:
         return pDelete;
     }
 protected:
-    virtual void internal_insert(Node* &pParent, const value_type &value, Ref ref);
+    virtual auto find_position(const value_type &value) -> pair<Node*, Node*>;
 public:
     virtual void    insert(const value_type &value, Ref ref);
     
@@ -214,22 +214,29 @@ public:
 };
 
 template <typename Traits>
-void LinkedList<Traits>::internal_insert(Node* &pPrev, const value_type &value, Ref ref){
-    if(!pPrev || m_comp(value, pPrev->getDataRef())){
-        pPrev = new Node(value, ref, pPrev);
-        m_size++;
-        if(pPrev->getNext() == nullptr)
-            m_pTail = pPrev;
-        return;
+ auto LinkedList<Traits>::find_position(const value_type &value) -> pair<Node*, Node*> {
+        Node* pCurrent = m_pRoot;
+        Node* pPrev = nullptr;
+        while (pCurrent && !m_comp(value, pCurrent->getDataRef())) {
+            pPrev = pCurrent;
+            pCurrent = pCurrent->getNext();
+        }
+        return {pPrev, pCurrent};
     }
-    internal_insert(pPrev->getNextRef(), value, ref);
-}
 
 template <typename Traits>
 void LinkedList<Traits>::insert(const value_type &value, Ref ref){
     scoped_lock<mutex> lock(m_mtx);
-    internal_insert(m_pRoot, value, ref);
-}
+    auto [pPrev, pCurrent] = find_position(value);
+    Node* pNew = new Node(value, ref, pCurrent);
+    if (pPrev) 
+        pPrev->setNext(pNew);
+    else 
+         m_pRoot = pNew; 
+    if (!pCurrent) 
+            m_pTail = pNew;
+     m_size++;
+    }
 
 template <typename Traits>
 string  LinkedList<Traits>::toString() {
