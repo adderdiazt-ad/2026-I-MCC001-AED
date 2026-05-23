@@ -38,8 +38,7 @@ struct DescendingHeapTrait : public BaseContainerTrait<T, HeapNode<T> >,
 {
 };
 
-// Revisar: https://www.cs.usfca.edu/~galles/visualization/Heap.html
-// Pero en este ejercicio empezamos el la posicion [0]
+
 template <typename Traits>
 class Heap {
 public:
@@ -74,7 +73,7 @@ public:
         m_heap = move(other.m_heap);
         m_comp = move(other.m_comp);
     }
-    // revisar como trabaja el agotirmo de Floyd para construir el heap a partir de un vector de elementos
+    
     void build_heap(const vector<pair<value_type, Ref>>& elements);
     void insert(const value_type &value, Ref ref);
     auto extract()-> std::pair<value_type, Ref>;
