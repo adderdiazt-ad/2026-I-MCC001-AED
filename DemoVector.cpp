@@ -5,13 +5,13 @@
 
 using namespace std;
 
-template <typename Node>
-void Print(Node &value, ostream& os){
+template <typename T>
+void Print(VectorNode<T> &value, ostream& os){
     os << value << ",";
 }
 
-template <typename Node>
-void AddOne(Node &node){    
+template <typename T>
+void AddOne(VectorNode<T> &node){    
     static mutex mtx;
     scoped_lock<mutex> lock(mtx);
     ++node;
@@ -40,7 +40,7 @@ void DemoVector(){
     v1.push_back(25, 5);
     v1.push_back(10, 20);
     v1.push_back(13, 25);
-
+    
     cout << "Recorrido con iteradores" << endl;
     v1.ForEach(Print<TI>, cout);
     cout << endl;

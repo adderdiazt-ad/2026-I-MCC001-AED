@@ -27,34 +27,27 @@ public:
     MySelf operator++() { this->m_pNode--; return *this; }
 };
 
-template <typename Traits>
+template <typename T>
 struct VectorNode{
-    using value_type = typename Traits::value_type;
+    using value_type = T;
 
     value_type   m_data;
     Ref          m_ref;
     VectorNode() : m_data(value_type()), m_ref(Ref()) {}
     VectorNode(value_type data, Ref ref) : m_data(data), m_ref(ref) {}
-    string ToString(){
-        ostringstream oss;
-        oss << "(" << m_data << "," << m_ref << ")";
-        return oss.str();
-    }
     value_type   GetData() const { return m_data; }
     value_type&  GetDataRef()    { return m_data; }
     Ref GetRef()  const { return m_ref;  }
     void operator++() { ++m_data; }
     void operator+=(const value_type& value) { m_data += value; }
+    friend ostream &operator<<(ostream &os, const VectorNode<value_type> &Node){
+        return os<< "(" << Node.GetData() << ", " << Node.GetRef() << ")";
+    }
 };
 
 template <typename T>
 struct VectorTraits : public BaseContainerTrait<T, VectorNode<T>>{
 };
-
-template <typename Traits>
-ostream& operator<<(ostream& os, VectorNode<Traits>& vn){
-    return os << vn.ToString();
-}
 
 template <typename Traits>
 class Vector{

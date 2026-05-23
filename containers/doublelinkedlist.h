@@ -48,7 +48,7 @@ public:
 };
 
 template <typename Traits>
-class DoubleLinkedList public LinkedList<Traits>{
+class DoubleLinkedList : public LinkedList<Traits>{
 public:
     using value_type = typename Traits::value_type;
     using Node       = typename Traits::Node;

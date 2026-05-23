@@ -1,6 +1,8 @@
 #include "containers/linkedlist.h"
 #include <fstream>
-
+#include "containers/heap.h"
+#include "util.h"
+#include "types.h"
 template <typename Node>
 void Print(Node &node, ostream& os){
     os << node << ",";
@@ -13,16 +15,16 @@ void AddX(Node &node, typename Node::value_type value){
 
 template <typename Node>
 void AddY(Node &node, typename Node::value_type value1, typename Node::value_type value2){
-    node.getDataRef() += value1 + value2;
+    node.GetDataRef() += value1 + value2;
 }
 
 template <typename Node, typename T>
-bool IsGreaterThan(Node &node, T x){
-    return node.getDataRef() > x;
+bool IsLessThan(Node &node, T x){
+    return node.GetDataRef() < x;
 }
 
 void LinkedListDemo(){
-    // 
+    /*
     LinkedList<DescendingLinkedListTrait<TI>> list1;
     list1.insert(6, 15);
     list1.insert(2, 25);
@@ -99,6 +101,35 @@ void LinkedListDemo(){
 
     cout << "Prueba operador []: " << endl;
     cout << "Lista5 [2]: " << list5[2] << endl;
+    */
+
+   std::cout << "========================================\n";
+    std::cout << "   DEMO: ForEach y FirstThat (Heap)     \n";
+    std::cout << "========================================\n\n";
+
+    // Creamos un Max-Heap (Descendente) simulando tareas
+    // Valor = Prioridad de la tarea, Ref = ID de la tarea
+    Heap<AscendingHeapTrait<int>> tareas;
+    ifstream file("lista1.txt");
+    file >> tareas; // Cargar tareas desde un archivo
+    std::cout << "Estado interno del Heap (Arreglo): " << tareas << "\n\n";
+
+    // ==========================================
+    // PRUEBA 1: Uso de ForEach
+     using LI = Heap<AscendingHeapTrait<TI>>::Node;
+     std::cout << "--- 1. Ejecutando ForEach ---" << std::endl;
+    // ==========================================
+    std::cout << "--- 1. Ejecutando ForEach ---" << std::endl;
+    tareas.ForEach(AddY<LI>, 10, 11);
+    cout << "Prueba ForEach + 10 + 11: " << endl;
+    tareas.ForEach(Print<LI>, cout);
+    std::cout << "\n========================================\n";
+    auto it = tareas.FirstThat(IsLessThan<LI, TI>, 70);
+    if (it != tareas.end())
+        cout << "Primer menor a 70   : " << *it << endl;
+    cout << "Fin recorrido con iteradores" << endl;
+
+    std::cout << "\n========================================\n";
 }
 
 void ListsDemo(){
