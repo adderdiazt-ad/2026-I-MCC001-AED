@@ -1,6 +1,8 @@
 #include "containers/linkedlist.h"
 #include <fstream>
-
+#include "containers/binarytree.h"
+#include "util.h"
+#include "types.h"
 template <typename Node>
 void Print(Node &node, ostream& os){
     os << node << ",";
@@ -13,16 +15,16 @@ void AddX(Node &node, typename Node::value_type value){
 
 template <typename Node>
 void AddY(Node &node, typename Node::value_type value1, typename Node::value_type value2){
-    node.getDataRef() += value1 + value2;
+    node.GetDataRef() += value1 + value2;
 }
 
 template <typename Node, typename T>
-bool IsGreaterThan(Node &node, T x){
-    return node.getDataRef() > x;
+bool IsLessThan(Node &node, T x){
+    return node.GetDataRef() < x;
 }
 
 void LinkedListDemo(){
-    // 
+    /*
     LinkedList<DescendingLinkedListTrait<TI>> list1;
     list1.insert(6, 15);
     list1.insert(2, 25);
@@ -99,6 +101,29 @@ void LinkedListDemo(){
 
     cout << "Prueba operador []: " << endl;
     cout << "Lista5 [2]: " << list5[2] << endl;
+    */
+
+   BinaryTree<DescendingBinaryTreeTrait<TI>> tree;
+    tree.insert(5, 15);
+    tree.insert(3, 25);
+    tree.insert(7, 35);
+    tree.insert(2, 45);
+    tree.insert(4, 55);
+    tree.insert(6, 65);
+    tree.insert(8, 75);
+    tree.insert(1, 85);
+
+    cout << "Recorrido PreOrder forward: " << endl;
+    for (auto it = tree.begin_forward_preorder(); it != tree.end_forward_preorder(); ++it) {
+        cout << *it << ",";
+    }
+    cout <<"\n";
+    
+    cout << "\nRecorrido PreOrder backward: " << endl;
+    for (auto it = tree.begin_backward_preorder(); it != tree.end_backward_preorder(); ++it) {
+        cout << *it << ",";
+    }
+    
 }
 
 void ListsDemo(){

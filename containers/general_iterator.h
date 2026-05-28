@@ -29,6 +29,7 @@ public:
           }
     Node *getNode() const { return m_pNode; }
     friend bool operator==(const IteratorBase &a, const IteratorBase &b) { return a.getNode() == b.getNode(); } 
+    friend bool operator!=(const IteratorBase &a, const IteratorBase &b) { return !(a == b); }
     Node &operator*(){ return *m_pNode; }
     Node* operator->() const { return m_pNode; }
 };
