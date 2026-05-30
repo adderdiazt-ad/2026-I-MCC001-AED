@@ -3,11 +3,14 @@
 #include <iostream>
 #include <cstddef>   // size_t
 #include <string>
-#include <utility>  
+#include <utility> 
+#include <map>
+#include <vector> 
 #include <sstream>
 #include <mutex>
 #include "general_iterator.h"
 #include "basetrait.h"
+#include "../foreach.h"
 #include "../types.h"
 using namespace std;
 struct forwardWalk{
@@ -112,12 +115,13 @@ class BinaryTreeWalkIterator :   public general_iterator<Container,
     using MySelf = BinaryTreeWalkIterator<Container, order, directionWalk>;
     using Parent = general_iterator<Container, MySelf>;
     using Parent::Parent;
+    using NodePtr = typename Container::Node*;
 public:
-    static typename Container::NodePtr getBeginNode(typename Container::NodePtr root){
-        return order::template begin<typename Container::NodePtr, directionWalk>(root);
+    static NodePtr getBeginNode(NodePtr root){
+        return order::template begin<NodePtr, directionWalk>(root);
     }
     MySelf& operator++(){
-        this->m_pNode = order::template next<typename Container::NodePtr, directionWalk>(this->m_pNode);
+        this->m_pNode = order::template next<NodePtr, directionWalk>(this->m_pNode);
         return *this;
     }
 };
@@ -137,107 +141,16 @@ using BinaryTreeForwardPostorderIterator = BinaryTreeWalkIterator<Container, Pos
 template <typename Container>
 using BinaryTreeBackwardPostorderIterator = BinaryTreeWalkIterator<Container, PreOrder, backwardWalk>;
 
+
 template <typename T>
-class BinaryTreeNode{
-public:
-    using value_type = T;
-    using Node       = BinaryTreeNode<T>;
-    using NodePtr    = Node*;
-protected:
-    value_type m_data;
-    Ref        m_ref;
-    NodePtr    m_pChild[2] = {nullptr, nullptr};
-    NodePtr    m_pParent;   
-public:
-    BinaryTreeNode(const value_type& data, const Ref& ref, 
-        NodePtr left = nullptr, NodePtr right = nullptr)
-        : m_data(data), m_ref(ref)
-    {
-        setChild(0, left);
-        setChild(1, right);
-    }
-    // copy constructor ... revisar
-    BinaryTreeNode(const BinaryTreeNode& other){ // Evitar deadlock
-        m_data = other.m_data;
-        m_ref  = other.m_ref;   
-        m_pParent = nullptr; 
-        if (other.m_pChild[0]){ 
-            m_pChild[0] = new Node(*other.m_pChild[0]);
-            m_pChild[0]->m_pParent = this; 
-        }
-        if (other.m_pChild[1]){
-            m_pChild[1] = new Node(*other.m_pChild[1]);
-            m_pChild[1]->m_pParent = this;
-        }
-    }
-    // Corregir con exchange
-    BinaryTreeNode(BinaryTreeNode&& other) noexcept:
-        m_data   (move(other.m_data)),
-        m_ref    (move(other.m_ref)),
-        m_pParent(nullptr)
-    {
-        m_pChild[0] = exchange(other.m_pChild[0], nullptr);
-        m_pChild[1] = exchange(other.m_pChild[1], nullptr);
-        if(m_pChild[0]) m_pChild[0]->m_pParent = this;
-        if(m_pChild[1]) m_pChild[1]->m_pParent = this;
-    }
-    ~BinaryTreeNode() {
-        delete m_pChild[0];
-        delete m_pChild[1];
-    };
-
-    value_type      getData() const { return m_data; }
-    value_type&     getDataRef()    { return m_data; }
-    void            setData(value_type data) { m_data = data; }
-
-    Ref             getRef() const  { return m_ref; }
-    Ref&            getRefRef()     { return m_ref; }
-    void            setRef(Ref ref) { m_ref = ref; }
-
-    NodePtr         getParent() const { return m_pParent;}
-
-    NodePtr         getChild(size_t pos) const { return m_pChild[pos]; }
-    NodePtr&        getChildRef(size_t pos)    { return m_pChild[pos]; }
-    
-    void setChild(size_t pos, NodePtr pChild) { 
-        m_pChild[pos] = pChild; 
-        if (pChild) 
-            pChild->m_pParent = this;
-    }
-
-    string to_string() const {
-        stringstream ss;
-        ss << "Node(data: " << m_data << ", ref: " << m_ref << ")";
-        return ss.str();
-    }
-    // Cuidado: en el disco hay posiciones dentro del archivo,
-    //          en memoria hay punteros
-    friend ostream& operator<<(ostream& os, const BinaryTreeNode& node) {
-        return os << node.to_string(); 
-    }
-
-    // Cuidado: en el disco hay posiciones dentro del archivo,
-    //          en memoria hay punteros
-    friend istream& operator>>(istream& is, BinaryTreeNode& node) {
-        string line;
-        if (getline(is, line)) {
-            stringstream ss(line);
-            ss >> node.m_data >> node.m_ref;
-        }
-        return is;
-    }
-};
+using AscendingBinaryTreeTrait = customTrait<T, AscendingTrait<T>>;
 template <typename T>
-using AscendingBinaryTreeTrait = customTrait<T, BinaryTreeNode<T>, AscendingTrait<T>>;
-template <typename T>
-using DescendingBinaryTreeTrait = customTrait<T, BinaryTreeNode<T>, DescendingTrait<T>>;
+using DescendingBinaryTreeTrait = customTrait<T, DescendingTrait<T>>;
 
 template <typename Traits>
 class BinaryTree{
-public:
+public:    
     using value_type = typename Traits::value_type;
-    using Node       = typename Traits::Node;
-    using NodePtr   = Node*;
     using Comp       = typename Traits::Comp;
     using MySelf     = BinaryTree<Traits>;
 
@@ -249,29 +162,119 @@ public:
     
     using forward_postorder_iterator = BinaryTreeForwardPostorderIterator<MySelf>;
     using backward_postorder_iterator = BinaryTreeBackwardPostorderIterator<MySelf>;
+
+    class Node{ 
+    protected:
+        value_type  m_data;
+        Ref         m_ref;
+        Node*       m_pChild[2] = {nullptr, nullptr};
+        Node*       m_pParent= nullptr;   
+    public:
+        Node(const value_type& data, const Ref& ref, 
+            Node* left = nullptr, Node* right = nullptr)
+            : m_data(data), m_ref(ref)
+        {
+            setChild(0, left);
+            setChild(1, right);
+        }
+        // copy constructor ... revisar
+        Node(const Node& other) 
+            : m_data(other.m_data), m_ref(other.m_ref), m_pParent(nullptr) 
+        {
+            m_pChild[0] = nullptr;
+            m_pChild[1] = nullptr;
+        }
+        // Corregir con exchange
+        Node(Node&& other) noexcept:
+            m_data   (move(other.m_data)),
+            m_ref    (move(other.m_ref)),
+            m_pParent(nullptr)
+        {
+            m_pChild[0] = exchange(other.m_pChild[0], nullptr);
+            m_pChild[1] = exchange(other.m_pChild[1], nullptr);
+            if(m_pChild[0]) m_pChild[0]->m_pParent = this;
+            if(m_pChild[1]) m_pChild[1]->m_pParent = this;
+        }
+        ~Node() {};
+
+        value_type      getData() const { return m_data; }
+        value_type&     getDataRef()    { return m_data; }
+        void            setData(value_type data) { m_data = data; }
+
+        Ref             getRef() const  { return m_ref; }
+        Ref&            getRefRef()     { return m_ref; }
+        void            setRef(Ref ref) { m_ref = ref; }
+
+        Node*           getParent() const { return m_pParent;}
+        void            setParent(Node* pParent) { m_pParent = pParent; }
+
+        Node*           getChild(size_t pos) const { return m_pChild[pos]; }
+        Node*&          getChildRef(size_t pos)    { return m_pChild[pos]; }
+        
+        void setChild(size_t pos, Node* pChild) { 
+            m_pChild[pos] = pChild; 
+            if (pChild) 
+                pChild->m_pParent = this;
+        }
+        friend ostream& operator<<(ostream& os, const Node& node) {
+            os << "{" << node.m_data << ", " << node.m_ref << "}";
+            return os;
+        }
+    };
+
 protected:
     Node* m_pRoot = nullptr;
     Comp m_comp;
     size_t m_size = 0;
-    mutable mutex m_mutex; 
+    mutable mutex m_mutex;
+    
+    struct BinaryRecord {
+        value_type m_data;
+        Ref        m_ref;
+        TI        m_childId[2]; 
+    };
 public:
     BinaryTree(): m_pRoot(nullptr), m_size(0) {}
     ~BinaryTree() { clear(); }
     void clear() { 
         scoped_lock<mutex> lock(m_mutex);
-        delete m_pRoot; 
-        m_pRoot = nullptr; 
-        m_size = 0; }
+        if(!m_pRoot) return;
+        vector<Node*> stack;
+        stack.push_back(m_pRoot);
+        while(!stack.empty()){
+            Node* current = stack.back();
+            stack.pop_back();
+            if(current->getChild(0)){ 
+                current->getChild(0)->setParent(nullptr);
+                stack.push_back(current->getChild(0));
+            }
+            if(current->getChild(1)){ 
+                current->getChild(1)->setParent(nullptr);
+                stack.push_back(current->getChild(1));
+            }
+            delete current;
+        }
+        m_pRoot = nullptr;
+        m_size = 0;
+    }
     BinaryTree(const BinaryTree &other){ // Copy constructor
         scoped_lock<mutex> lock(other.m_mutex); 
-        if (other.m_pRoot) m_pRoot = new Node(*other.m_pRoot); 
+        m_pRoot = clone_BinaryTree(other.m_pRoot);
+        m_size  = other.m_size; 
     };
     BinaryTree(BinaryTree &&other){ // Move constructor
         scoped_lock<mutex> lock(other.m_mutex); 
         m_pRoot = exchange(other.m_pRoot, nullptr);
         m_size  = exchange(other.m_size, 0);
     };
-    size_t size() const { scoped_lock<mutex> lock(m_mutex); return m_size;}
+    size_t size() const { 
+        scoped_lock<mutex> lock(m_mutex); 
+        return m_size;
+    }
+    Node* getRoot() const { 
+        scoped_lock<mutex> lock(m_mutex); 
+        return m_pRoot; 
+    }
     void insert(const value_type &value, Ref ref){
         scoped_lock<mutex> lock(m_mutex);
         if (!m_pRoot) {
@@ -279,22 +282,99 @@ public:
             m_size++;
             return;
         }
-        internal_insert(m_pRoot, value, ref);
+        Node* current = m_pRoot;
+        while (true) {
+            size_t pos = !m_comp(value, current->getDataRef());
+            if (!current->getChild(pos)) {
+                current->setChild(pos, new Node(value, ref));
+                m_size++;
+                return;
+            }
+            current = current->getChild(pos);
+        }
+    }
+    ostream& write_BinaryTree(std::ostream& os) const {
+        std::scoped_lock<std::mutex> lock(m_mutex);
+        size_t totalNodes = m_size;
+        os.write(reinterpret_cast<const char*>(&totalNodes), sizeof(totalNodes));
+        if (totalNodes == 0) return os;
+        std::map<Node*, TI> nodeToId; 
+        std::vector<Node*> indexToNode;
+        TI currentId = 0;       
+        std::vector<Node*> stack;
+        stack.push_back(m_pRoot);
+        while (!stack.empty()) {
+            Node* current = stack.back();
+            stack.pop_back();
+            nodeToId[current] = currentId++;
+            indexToNode.push_back(current);
+            if (current->getChild(1)) stack.push_back(current->getChild(1));
+            if (current->getChild(0)) stack.push_back(current->getChild(0));
+        }
+        
+        for (Node* pNode : indexToNode) {
+            BinaryRecord record;
+            record.m_data = pNode->getData();
+            record.m_ref  = pNode->getRef();
+            for (size_t i = 0; i < 2; ++i) {
+                record.m_childId[i] = pNode->getChild(i) ? nodeToId[pNode->getChild(i)] : -1;
+            }
+            os.write(reinterpret_cast<const char*>(&record), sizeof(BinaryRecord));
+        }
+        return os;
+    }
+
+    istream& read_binaryTree(std::istream& is) {
+        clear(); 
+        std::scoped_lock<std::mutex> lock(m_mutex);
+        size_t totalNodes = 0;
+        if (!is.read(reinterpret_cast<char*>(&totalNodes), sizeof(totalNodes))) 
+            return is; 
+        if (totalNodes == 0) return is;
+        vector<Node*> idToNode(totalNodes, nullptr);
+        vector<BinaryRecord> records(totalNodes);
+        for (size_t i = 0; i < totalNodes; ++i) {
+            is.read(reinterpret_cast<char*>(&records[i]), sizeof(BinaryRecord));
+            idToNode[i] = new Node(records[i].m_data, records[i].m_ref);
+            if (i == 0) {
+                m_pRoot = idToNode[i];
+            }
+        }
+        m_size = totalNodes;
+        for (size_t i = 0; i < totalNodes; ++i) {
+            Node* pNode = idToNode[i];
+            const BinaryRecord& rec = records[i];
+            for (size_t j = 0; j < 2; ++j) {
+                if (rec.m_childId[j] != -1) 
+                    pNode->setChild(j, idToNode[rec.m_childId[j]]);
+            }
+        }
+        return is;
     }
 private:
-    void internal_insert(Node* &pNode, const value_type &value, Ref ref){
-        size_t pos = !m_comp(value, pNode->getDataRef());
-        if(!pNode->getChildRef(pos)){
-            pNode->setChild(pos, new Node(value, ref));
-            m_size++;
-            return;
-        }else{
-            internal_insert(pNode->getChildRef(pos), value, ref);
+    Node* clone_BinaryTree(Node* source_root) {
+        if (!source_root) return nullptr;
+        Node* dest_root = new Node(*source_root);
+        vector<pair<Node*, Node*>> stack;
+        stack.push_back({source_root, dest_root});
+
+        while (!stack.empty()) {
+            auto [other_node, my_node] = stack.back();
+            stack.pop_back();
+            if (other_node->getChild(0)) {
+                my_node->setChild(0, new Node(*other_node->getChild(0)));
+                stack.push_back({other_node->getChild(0), my_node->getChild(0)});
+            }
+            if (other_node->getChild(1)) {
+                my_node->setChild(1, new Node(*other_node->getChild(1)));
+                stack.push_back({other_node->getChild(1), my_node->getChild(1)});
+            }
         }
+        return dest_root;
     }
     template <typename Iterator>
     Iterator begin() {
-        //scoped_lock<mutex> lock(m_mutex);
+        scoped_lock<mutex> lock(m_mutex);
         return Iterator(this, Iterator::getBeginNode(m_pRoot));
     }
     template <typename Iterator>
@@ -316,8 +396,27 @@ public:
     auto end_forward_postorder()    { return end<forward_postorder_iterator>(); }
     auto begin_backward_postorder() { return begin<backward_postorder_iterator>(); }
     auto end_backward_postorder()   { return end<backward_postorder_iterator>(); }
-};
 
+    template <typename Func, typename... Args>
+    void ForEach(Func func, Args &&...  args){
+        ::ForEach(begin_forward_inorder(), end_forward_inorder(), func, std::forward<Args>(args)... );
+    }
+
+    //Agregar FirstThat
+    template <typename Func, typename... Args>
+    auto FirstThat(Func func, Args &&...  args){
+        return ::FirstThat(begin_forward_inorder(), end_forward_inorder(), func, std::forward<Args>(args)... );
+    }
+};
+template <typename Traits>
+ostream& operator<<(ostream& os, const BinaryTree<Traits>& tree) {
+        return tree.write_BinaryTree(os);
+}
+
+template <typename Traits>
+istream& operator>>(istream& is, BinaryTree<Traits>& tree) {
+        return tree.read_binaryTree(is);
+}
 
 
 

@@ -1,4 +1,4 @@
-#include "containers/linkedlist.h"
+//#include "containers/linkedlist.h"
 #include <fstream>
 #include "containers/binarytree.h"
 #include "util.h"
@@ -14,13 +14,13 @@ void AddX(Node &node, typename Node::value_type value){
 }
 
 template <typename Node>
-void AddY(Node &node, typename Node::value_type value1, typename Node::value_type value2){
-    node.GetDataRef() += value1 + value2;
+void AddY(Node &node, TI value1, TI value2){
+    node.getDataRef() += value1 + value2;
 }
 
 template <typename Node, typename T>
 bool IsLessThan(Node &node, T x){
-    return node.GetDataRef() < x;
+    return node.getDataRef() < x;
 }
 
 void LinkedListDemo(){
@@ -103,7 +103,7 @@ void LinkedListDemo(){
     cout << "Lista5 [2]: " << list5[2] << endl;
     */
 
-   BinaryTree<DescendingBinaryTreeTrait<TI>> tree;
+   BinaryTree<AscendingBinaryTreeTrait<TI>> tree;
     tree.insert(5, 15);
     tree.insert(3, 25);
     tree.insert(7, 35);
@@ -113,18 +113,73 @@ void LinkedListDemo(){
     tree.insert(8, 75);
     tree.insert(1, 85);
 
-    cout << "Recorrido PreOrder forward: " << endl;
-    for (auto it = tree.begin_forward_preorder(); it != tree.end_forward_preorder(); ++it) {
+    cout << "Recorrido inorder forward: " << endl;
+    for (auto it = tree.begin_forward_inorder(); it != tree.end_forward_inorder(); ++it) {
         cout << *it << ",";
     }
     cout <<"\n";
     
-    cout << "\nRecorrido PreOrder backward: " << endl;
-    for (auto it = tree.begin_backward_preorder(); it != tree.end_backward_preorder(); ++it) {
+    cout << "\nRecorrido inorder backward: " << endl;
+    for (auto it = tree.begin_backward_inorder(); it != tree.end_backward_inorder(); ++it) {
+        cout << *it << ",";
+    }
+    using JI = BinaryTree<AscendingBinaryTreeTrait<TI>>::Node;
+    cout << "\n-------------------\n";
+    
+    tree.ForEach(AddY<JI>, 10, 5);
+    for (auto it = tree.begin_forward_preorder(); it != tree.end_forward_preorder(); ++it) {
         cout << *it << ",";
     }
     
+    cout << "\nPrueba First That: " << endl;
+    cout << "\n\n";
+    tree.ForEach(Print<JI>, cout);
+    cout << "\n\n";
+    auto it = tree.FirstThat(IsLessThan<JI, TI>, 25);
+    if (it != tree.end_forward_inorder())
+        cout << "Primer menor a 5   : " << *it << endl;
+    cout << "Fin recorrido con iteradores" << endl;
+    cout<< "\n-------------------\n";
+    cout<<tree<<endl;
+
+
+    cout<< "\n--------PRUEBA DE ESCRITURA Y LECTURA-----------\n";
+    std::cout << "Tamano actual: " << tree.size() << " nodos." << std::endl;
+
+    // 2. GUARDAR EN DISCO (Usando tu operador <<)
+    std::string filename = "arbol.bin";
+    {
+        std::ofstream outFile(filename, std::ios::binary);
+        if (outFile.is_open()) {
+            std::cout << "Guardando arbol en " << filename << "..." << std::endl;
+            outFile << tree; 
+            outFile.close();
+            std::cout << "Guardado con exito." << std::endl;
+        }
+    }
+
+    // 3. RECUPERAR DESDE EL DISCO (Usando tu operador >>)
+    BinaryTree<AscendingBinaryTreeTrait<TI>> newTree;
+    {
+        std::ifstream inFile(filename, std::ios::binary);
+        if (inFile.is_open()) {
+            std::cout << "Recuperando arbol desde " << filename << "..." << std::endl;
+            inFile >> newTree;
+            inFile.close();
+            std::cout << "Recuperacion exitosa." << std::endl;
+        }
+    }
+
+
+    std::cout << "Tamano del nuevo arbol: " << newTree.size() << std::endl;
+
+
+
+
+
+
 }
+
 
 void ListsDemo(){
     LinkedListDemo();
