@@ -1,6 +1,7 @@
 //#include "containers/linkedlist.h"
 #include <fstream>
 #include "containers/binarytree.h"
+#include "containers/avlTree.h"
 #include "util.h"
 #include "types.h"
 template <typename Node>
@@ -112,32 +113,38 @@ void LinkedListDemo(){
     tree.insert(6, 65);
     tree.insert(8, 75);
     tree.insert(1, 85);
-
+    /*
     cout << "Recorrido inorder forward: " << endl;
     for (auto it = tree.begin_forward_inorder(); it != tree.end_forward_inorder(); ++it) {
         cout << *it << ",";
     }
-    cout <<"\n";
     
     cout << "\nRecorrido inorder backward: " << endl;
     for (auto it = tree.begin_backward_inorder(); it != tree.end_backward_inorder(); ++it) {
         cout << *it << ",";
     }
     using JI = BinaryTree<AscendingBinaryTreeTrait<TI>>::Node;
+    using FII = BinaryTree<AscendingBinaryTreeTrait<TI>>::forward_inorder_iterator;
     cout << "\n-------------------\n";
     
-    tree.ForEach(AddY<JI>, 10, 5);
+    tree.ForEach<FII>(AddY<JI>, 10, 5);
     for (auto it = tree.begin_forward_preorder(); it != tree.end_forward_preorder(); ++it) {
         cout << *it << ",";
     }
     
     cout << "\nPrueba First That: " << endl;
+    */
     cout << "\n\n";
-    tree.ForEach(Print<JI>, cout);
+    using JI = BinaryTree<AscendingBinaryTreeTrait<TI>>::Node;
+    using FPI = BinaryTree<AscendingBinaryTreeTrait<TI>>::forward_preorder_iterator;
+    using BPI = BinaryTree<AscendingBinaryTreeTrait<TI>>::backward_preorder_iterator;
+    tree.ForEach<FPI>(Print<JI>, cout);
     cout << "\n\n";
-    auto it = tree.FirstThat(IsLessThan<JI, TI>, 25);
-    if (it != tree.end_forward_inorder())
-        cout << "Primer menor a 5   : " << *it << endl;
+    tree.ForEach<BPI>(Print<JI>, cout);
+
+    auto it = tree.FirstThat<FPI>(IsLessThan<JI, TI>, 25);
+    if (it != tree.end_forward_preorder())
+       cout << "Primer menor a 5   : " << *it << endl;
     cout << "Fin recorrido con iteradores" << endl;
     cout<< "\n-------------------\n";
     cout<<tree<<endl;
@@ -175,7 +182,33 @@ void LinkedListDemo(){
 
 
 
+using Traits = AscendingBinaryTreeTrait<TI>;
+    AVLTree<Traits> avl;
 
+    std::cout << "--- Probando Auto-Balanceo del AVL ---" << std::endl;
+
+
+    for (TI i = 1; i <= 7; ++i) {
+        avl.insert(i, 0); 
+        cout << "Insertado: " << i << " | Raiz actual: " << avl.getRoot()->getDataRef() 
+                  << " | Altura: " << avl.getRoot()->getHeight() << std::endl;
+    }
+
+    std::cout << "\nRecorrido In-Order (debe salir ordenado):" << std::endl;
+    auto a = avl.begin_forward_inorder();
+    auto b = avl.end_forward_inorder();
+    for (; a != b; ++a) {
+        std::cout << *a << " ";
+    }
+    std::cout << std::endl;
+
+    // 2. Verificación visual del balanceo
+    if (avl.getRoot()->getHeight() <= 3) {
+        std::cout << "\n¡Exito! El arbol esta perfectamente balanceado (Altura: " 
+                  << avl.getRoot()->getHeight() << ")" << std::endl;
+    } else {
+        std::cout << "\nError: El arbol no se balanceo correctamente." << std::endl;
+    }
 
 
 }

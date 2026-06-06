@@ -21,7 +21,6 @@ struct backwardWalk{
     static constexpr size_t a = 1;
     static constexpr size_t b = 0;
 };
-// Tipo de recorrido: InOrder, PreOrder, PostOrder
 struct InOrder {
     template <typename NodePtr, typename Direction>
     static NodePtr begin(NodePtr root) {
@@ -32,7 +31,6 @@ struct InOrder {
         }
         return current;
     }
-
     template <typename NodePtr, typename Direction>
     static NodePtr next(NodePtr current) {
         if (!current) return nullptr;
@@ -62,20 +60,18 @@ struct PreOrder {
     template <typename NodePtr, typename Direction>
     static NodePtr next(NodePtr current) {
         if (!current) return nullptr;
-
-        if (current->getChild(Direction::a)) {
+        if (current->getChild(Direction::a)) 
             return current->getChild(Direction::a);
-        } else if (current->getChild(Direction::b)) {
+        if (current->getChild(Direction::b)) 
             return current->getChild(Direction::b);
-        } else {
-            auto parent = current->getParent();
-            while (parent != nullptr && 
-                  (current == parent->getChild(Direction::b) || parent->getChild(Direction::b) == nullptr)) {
-                current = parent;
-                parent = parent->getParent();
-            }
-            return (parent != nullptr) ? parent->getChild(Direction::b) : nullptr;
+        auto parent = current->getParent();
+        while (parent && 
+                (current == parent->getChild(Direction::b) || parent->getChild(Direction::b) == nullptr)) {
+            current = parent;
+            parent = parent->getParent();
         }
+        return (parent) ? parent->getChild(Direction::b) : nullptr;
+        
     }
 };
 struct PostOrder {
@@ -167,6 +163,7 @@ public:
     protected:
         value_type  m_data;
         Ref         m_ref;
+        TI          m_height = 1;
         Node*       m_pChild[2] = {nullptr, nullptr};
         Node*       m_pParent= nullptr;   
     public:
@@ -177,14 +174,12 @@ public:
             setChild(0, left);
             setChild(1, right);
         }
-        // copy constructor ... revisar
         Node(const Node& other) 
             : m_data(other.m_data), m_ref(other.m_ref), m_pParent(nullptr) 
         {
             m_pChild[0] = nullptr;
             m_pChild[1] = nullptr;
         }
-        // Corregir con exchange
         Node(Node&& other) noexcept:
             m_data   (move(other.m_data)),
             m_ref    (move(other.m_ref)),
@@ -205,6 +200,9 @@ public:
         Ref&            getRefRef()     { return m_ref; }
         void            setRef(Ref ref) { m_ref = ref; }
 
+        TI              getHeight() const { return m_height; }
+        void            setHeight(TI height) { m_height = height; }
+
         Node*           getParent() const { return m_pParent;}
         void            setParent(Node* pParent) { m_pParent = pParent; }
 
@@ -223,21 +221,21 @@ public:
     };
 
 protected:
-    Node* m_pRoot = nullptr;
-    Comp m_comp;
-    size_t m_size = 0;
-    mutable mutex m_mutex;
+    Node*   m_pRoot = nullptr;
+    Comp    m_comp;
+    size_t  m_size = 0;
+    mutable recursive_mutex m_mutex;
     
     struct BinaryRecord {
-        value_type m_data;
-        Ref        m_ref;
-        TI        m_childId[2]; 
+        value_type  m_data;
+        Ref         m_ref;
+        TI          m_childId[2]; 
     };
 public:
     BinaryTree(): m_pRoot(nullptr), m_size(0) {}
-    ~BinaryTree() { clear(); }
+    virtual ~BinaryTree() { clear(); }
     void clear() { 
-        scoped_lock<mutex> lock(m_mutex);
+        scoped_lock<recursive_mutex> lock(m_mutex);
         if(!m_pRoot) return;
         vector<Node*> stack;
         stack.push_back(m_pRoot);
@@ -258,29 +256,29 @@ public:
         m_size = 0;
     }
     BinaryTree(const BinaryTree &other){ // Copy constructor
-        scoped_lock<mutex> lock(other.m_mutex); 
+        scoped_lock<recursive_mutex> lock(other.m_mutex); 
         m_pRoot = clone_BinaryTree(other.m_pRoot);
         m_size  = other.m_size; 
-    };
-    BinaryTree(BinaryTree &&other){ // Move constructor
-        scoped_lock<mutex> lock(other.m_mutex); 
+    }
+    BinaryTree(BinaryTree &&other) noexcept { // Move constructor
+        scoped_lock<recursive_mutex> lock(other.m_mutex); 
         m_pRoot = exchange(other.m_pRoot, nullptr);
         m_size  = exchange(other.m_size, 0);
-    };
+    }
     size_t size() const { 
-        scoped_lock<mutex> lock(m_mutex); 
+        scoped_lock<recursive_mutex> lock(m_mutex); 
         return m_size;
     }
     Node* getRoot() const { 
-        scoped_lock<mutex> lock(m_mutex); 
+        scoped_lock<recursive_mutex> lock(m_mutex); 
         return m_pRoot; 
     }
-    void insert(const value_type &value, Ref ref){
-        scoped_lock<mutex> lock(m_mutex);
+    Node* insert(const value_type &value, Ref ref){
+        scoped_lock<recursive_mutex> lock(m_mutex);
         if (!m_pRoot) {
             m_pRoot = new Node(value, ref);
             m_size++;
-            return;
+            return m_pRoot;
         }
         Node* current = m_pRoot;
         while (true) {
@@ -288,13 +286,13 @@ public:
             if (!current->getChild(pos)) {
                 current->setChild(pos, new Node(value, ref));
                 m_size++;
-                return;
+                return current->getChild(pos);
             }
             current = current->getChild(pos);
         }
     }
     ostream& write_BinaryTree(std::ostream& os) const {
-        std::scoped_lock<std::mutex> lock(m_mutex);
+        std::scoped_lock<std::recursive_mutex> lock(m_mutex);
         size_t totalNodes = m_size;
         os.write(reinterpret_cast<const char*>(&totalNodes), sizeof(totalNodes));
         if (totalNodes == 0) return os;
@@ -326,7 +324,7 @@ public:
 
     istream& read_binaryTree(std::istream& is) {
         clear(); 
-        std::scoped_lock<std::mutex> lock(m_mutex);
+        std::scoped_lock<std::recursive_mutex> lock(m_mutex);
         size_t totalNodes = 0;
         if (!is.read(reinterpret_cast<char*>(&totalNodes), sizeof(totalNodes))) 
             return is; 
@@ -374,7 +372,6 @@ private:
     }
     template <typename Iterator>
     Iterator begin() {
-        scoped_lock<mutex> lock(m_mutex);
         return Iterator(this, Iterator::getBeginNode(m_pRoot));
     }
     template <typename Iterator>
@@ -397,15 +394,16 @@ public:
     auto begin_backward_postorder() { return begin<backward_postorder_iterator>(); }
     auto end_backward_postorder()   { return end<backward_postorder_iterator>(); }
 
-    template <typename Func, typename... Args>
+    template <typename iterator,typename Func, typename... Args>
     void ForEach(Func func, Args &&...  args){
-        ::ForEach(begin_forward_inorder(), end_forward_inorder(), func, std::forward<Args>(args)... );
+        scoped_lock<recursive_mutex> lock(m_mutex);
+        ::ForEach(begin<iterator>(), end<iterator>(), func, std::forward<Args>(args)... );
     }
 
-    //Agregar FirstThat
-    template <typename Func, typename... Args>
+    template <typename iterator, typename Func, typename... Args>
     auto FirstThat(Func func, Args &&...  args){
-        return ::FirstThat(begin_forward_inorder(), end_forward_inorder(), func, std::forward<Args>(args)... );
+        scoped_lock<recursive_mutex> lock(m_mutex);
+        return ::FirstThat(begin<iterator>(), end<iterator>(), func, std::forward<Args>(args)... );
     }
 };
 template <typename Traits>
