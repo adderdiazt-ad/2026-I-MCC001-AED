@@ -378,6 +378,7 @@ private:
     Iterator end() {
         return Iterator(this, nullptr);
     }
+    
 public:
     auto begin_forward_inorder()    { return begin<forward_inorder_iterator>();}
     auto end_forward_inorder()      { return end<forward_inorder_iterator>(); }
@@ -394,17 +395,32 @@ public:
     auto begin_backward_postorder() { return begin<backward_postorder_iterator>(); }
     auto end_backward_postorder()   { return end<backward_postorder_iterator>(); }
 
-    template <typename iterator,typename Func, typename... Args>
-    void ForEach(Func func, Args &&...  args){
-        scoped_lock<recursive_mutex> lock(m_mutex);
-        ::ForEach(begin<iterator>(), end<iterator>(), func, std::forward<Args>(args)... );
-    }
+    template <typename Iterator>
+    struct rangeView {
+        Iterator m_begin;
+        Iterator m_end;
+        unique_lock<recursive_mutex> m_mutex;
+        rangeView(Iterator begin, Iterator end, recursive_mutex& mutex) 
+            : m_begin(begin), m_end(end), m_mutex(mutex) {}
+        Iterator begin(){ return m_begin; }
+        Iterator end()  { return m_end; }
 
-    template <typename iterator, typename Func, typename... Args>
-    auto FirstThat(Func func, Args &&...  args){
-        scoped_lock<recursive_mutex> lock(m_mutex);
-        return ::FirstThat(begin<iterator>(), end<iterator>(), func, std::forward<Args>(args)... );
-    }
+        template <typename Func, typename... Args>
+        void ForEach(Func func, Args &&...  args){
+            ::ForEach(m_begin, m_end, func, std::forward<Args>(args)... );
+        }
+        template <typename Func, typename... Args>
+        auto FirstThat(Func func, Args &&...  args){
+            return ::FirstThat(m_begin, m_end, func, std::forward<Args>(args)... );
+        }
+    };
+
+    auto forward_inorder(){return rangeView<forward_inorder_iterator>(begin_forward_inorder(), end_forward_inorder(), m_mutex);}
+    auto backward_inorder(){return rangeView<backward_inorder_iterator>(begin_backward_inorder(), end_backward_inorder(), m_mutex);}
+    auto forward_preorder(){return rangeView<forward_preorder_iterator>(begin_forward_preorder(), end_forward_preorder(), m_mutex);}
+    auto backward_preorder(){return rangeView<backward_preorder_iterator>(begin_backward_preorder(), end_backward_preorder(), m_mutex);}
+    auto forward_postorder(){return rangeView<forward_postorder_iterator>(begin_forward_postorder(), end_forward_postorder(), m_mutex);}
+    auto backward_postorder(){return rangeView<backward_postorder_iterator>(begin_backward_postorder(), end_backward_postorder(), m_mutex);}
 };
 template <typename Traits>
 ostream& operator<<(ostream& os, const BinaryTree<Traits>& tree) {

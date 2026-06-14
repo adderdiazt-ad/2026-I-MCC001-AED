@@ -127,7 +127,7 @@ void LinkedListDemo(){
     using FII = BinaryTree<AscendingBinaryTreeTrait<TI>>::forward_inorder_iterator;
     cout << "\n-------------------\n";
     
-    tree.ForEach<FII>(AddY<JI>, 10, 5);
+    tree.forward_inorder().ForEach(AddY<JI>, 10, 5);
     for (auto it = tree.begin_forward_preorder(); it != tree.end_forward_preorder(); ++it) {
         cout << *it << ",";
     }
@@ -136,18 +136,18 @@ void LinkedListDemo(){
     */
     cout << "\n\n";
     using JI = BinaryTree<AscendingBinaryTreeTrait<TI>>::Node;
-    using FPI = BinaryTree<AscendingBinaryTreeTrait<TI>>::forward_preorder_iterator;
-    using BPI = BinaryTree<AscendingBinaryTreeTrait<TI>>::backward_preorder_iterator;
-    tree.ForEach<FPI>(Print<JI>, cout);
+    tree.forward_preorder().ForEach(Print<JI>, cout);
     cout << "\n\n";
-    tree.ForEach<BPI>(Print<JI>, cout);
+    tree.backward_preorder().ForEach(Print<JI>, cout);
 
-    auto it = tree.FirstThat<FPI>(IsLessThan<JI, TI>, 25);
-    if (it != tree.end_forward_preorder())
-       cout << "Primer menor a 5   : " << *it << endl;
+    auto it = tree.backward_inorder().FirstThat(IsLessThan<JI, TI>, 25);
+    if (it != tree.backward_inorder().end())
+    cout << "\nPrimer menor a 5   : " << *it << endl;
     cout << "Fin recorrido con iteradores" << endl;
     cout<< "\n-------------------\n";
-    cout<<tree<<endl;
+    for(auto node : tree.backward_inorder()) {
+        cout << node << ",";
+    }
 
 
     cout<< "\n--------PRUEBA DE ESCRITURA Y LECTURA-----------\n";
