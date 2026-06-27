@@ -20,5 +20,7 @@ using TS = string;
 #endif
 
 using Ref = long;
-
+using L= long;
+using TF= bool;
+using CH= char;
 #endif // __TYPES_H__
