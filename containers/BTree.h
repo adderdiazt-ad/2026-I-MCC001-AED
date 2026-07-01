@@ -122,7 +122,7 @@ auto BTree<Traits>::Search (const keyType key)
 template <typename Traits>
 string BTree<Traits>::to_string(){
     std::ostringstream ss;
-    this->backward().walk([&ss](const auto& node){
+    this->forward().walk([&ss](const auto& node){
         ss<<node.getKey()<<"->"<<node.getObjID()<<"\n";
     
     });
