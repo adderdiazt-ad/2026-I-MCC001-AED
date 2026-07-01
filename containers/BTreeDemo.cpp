@@ -13,14 +13,16 @@ const size_t BTreeSize = 3;
 int main()
 {
        size_t result, i;
-       BTree <BTreeTrait<CH, size_t>> bt;
+       BTree <BTreeTraits<CH, size_t>> bt;
        for (i = 0; keys2[i]; i++)
        {
                //cout<<"Inserting "<<keys1[i]<<endl;
                result = bt.Insert(keys2[i], i*i);
                //bt.Print(cout);
        }
-       bt.Print(cout);
+       bt.printGraphic(cout);
+       cout<<"============================\n";
+       cout<<bt.to_string(); 
        /*for (i = 0; keys2[i]; i++)
        {
                cout << "Searching " << keys2[i] << " ";

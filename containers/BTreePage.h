@@ -8,20 +8,146 @@
 #define CBTreePage_H
 #include <vector>
 #include <cstddef>
+#include <array>
+#include <functional>
+#include <mutex>
+#include <string>
+#include <sstream>
 #include <iostream>
 #include <assert.h>
 #include "../types.h"
+#include "general_iterator.h" 
 using namespace std;
 template <typename _keyType, typename _ObjIDType>
 struct tagNode;
 
 template<typename _keyType, typename _ObjIDType>
-struct BTreeTrait{
+struct BTreeTraits{
        using value_type     = _keyType;
        using ObjIDType      = _ObjIDType;
        using Node           = tagNode<value_type, ObjIDType>;
        //using Comp = less<value_type>;
 };
+
+struct Forward {
+    static constexpr TF is_forward = true;
+    static size_t extreme_child      (size_t keyCount) { return 0; }
+    static size_t extreme_key        (size_t keyCount) { return 0; }
+};
+
+struct Backward {
+    static constexpr TF is_forward = false;
+    static size_t extreme_child      (size_t keyCount) { return keyCount; }
+    static size_t extreme_key        (size_t keyCount) { return keyCount - 1; }
+};
+template <typename Traits>
+class BTree;
+template <typename Traits, typename Direction>
+class BTreeIterator : public general_iterator<BTree<Traits>, BTreeIterator<Traits, Direction>> 
+{
+public:
+    using Container = BTree<Traits>;
+    using Base      = general_iterator<Container, BTreeIterator<Traits, Direction>>;
+    using ptrPage   = typename Container::BTNode*;
+    using IndexType = size_t;
+
+private:
+    struct PathNode {
+        ptrPage page;
+        IndexType index;
+    };
+    static constexpr size_t MAX_HEIGHT = 16;
+    array<PathNode, MAX_HEIGHT> m_path;
+    size_t m_level;
+    size_t getLevel() {return m_level;}
+    void update_base_node();
+    void forward();
+    void backward();
+
+public:
+    BTreeIterator() : Base(nullptr, nullptr), m_level(0) {m_path[0] = {nullptr, 0};}
+    BTreeIterator(Container* pContainer, ptrPage root);
+    BTreeIterator& operator++() 
+    {
+        if (!this->m_pNode || !m_path[m_level].page) return *this;
+        if constexpr (Direction::is_forward) 
+            forward();
+        else 
+            backward();
+        update_base_node();
+        return *this;
+    }
+};
+template<typename Traits, typename Direction>
+BTreeIterator<Traits,Direction>::BTreeIterator(Container* pContainer, ptrPage root)
+: Base(pContainer, nullptr), m_level(0) {
+        if (!root) {
+            m_path[0] = {nullptr, 0};
+            return;
+        }
+        ptrPage current = root;
+        while (current) {
+            m_path[m_level].page = current;
+            if (current->m_SubPages[0] == nullptr) { 
+                m_path[m_level].index = Direction::extreme_key(current->m_KeyCount);
+                break;
+            }
+            size_t child_idx = Direction::extreme_child(current->m_KeyCount);
+            m_path[m_level].index = Direction::extreme_key(current->m_KeyCount);
+            current = current->m_SubPages[child_idx];
+            m_level++;
+        }
+        update_base_node();
+}
+template<typename Traits, typename Direction>
+void BTreeIterator<Traits,Direction>::update_base_node(){
+    if (m_path[m_level].page != nullptr) 
+        this->m_pNode = &(m_path[m_level].page->m_Keys[m_path[m_level].index]);
+    else 
+        this->m_pNode = nullptr;
+}
+template<typename Traits, typename Direction>
+void BTreeIterator<Traits,Direction>::forward(){
+        if (m_path[m_level].page->m_SubPages[m_path[m_level].index + 1]) {
+            m_path[m_level].index++;
+            m_level++;
+            m_path[m_level].page = m_path[m_level - 1].page->m_SubPages[m_path[m_level - 1].index];
+            m_path[m_level].index = 0; 
+            while (m_path[m_level].page->m_SubPages[0]) {
+                m_level++;
+                m_path[m_level].page = m_path[m_level - 1].page->m_SubPages[0];
+                m_path[m_level].index = 0;
+            }
+        } else {
+            m_path[m_level].index++;
+            while (m_level > 0 && m_path[m_level].index >= m_path[m_level].page->m_KeyCount) 
+                m_level--; 
+            if (m_level == 0 && m_path[m_level].index >= m_path[m_level].page->m_KeyCount) 
+                m_path[m_level].page = nullptr;
+        }
+}
+template<typename Traits, typename Direction>
+void BTreeIterator<Traits,Direction>::backward(){
+    if (m_path[m_level].page->m_SubPages[m_path[m_level].index]) {
+            auto left_child = m_path[m_level].page->m_SubPages[m_path[m_level].index];
+            m_path[m_level].index--;
+            m_level++;
+            m_path[m_level].page = left_child;
+            m_path[m_level].index = m_path[m_level].page->m_KeyCount - 1; 
+            while (m_path[m_level].page->m_SubPages[m_path[m_level].page->m_KeyCount]) {
+                auto rightmost_child = m_path[m_level].page->m_SubPages[m_path[m_level].page->m_KeyCount];
+                m_level++;
+                m_path[m_level].page = rightmost_child;
+                m_path[m_level].index = m_path[m_level].page->m_KeyCount - 1;
+            }  
+        } else {
+            m_path[m_level].index--;
+            while (m_level > 0 && m_path[m_level].index >= m_path[m_level].page->m_KeyCount)
+                m_level--; 
+            if (m_level == 0 && m_path[m_level].index >= m_path[m_level].page->m_KeyCount) 
+                m_path[m_level].page = nullptr;
+        }
+}
 // Si no lo encuentra, deberia decirme:
 // cual es la posicion donde deberia estar
 template <typename Container, typename ObjType>
@@ -62,10 +188,6 @@ void remove(Container& container, size_t pos)
                container[i-1] = container[i];
 }
 
-template <typename Traits>
-class BTree;
-
-
 
 enum bt_ErrorCode {bt_ok, bt_overflow, bt_underflow, bt_duplicate, bt_nofound, bt_rootmerged};
 
@@ -98,6 +220,7 @@ class CBTreePage
 // this is the in-memory version of the CBTreePage
 {
         friend class BTree<Traits>;
+        template <typename T, typename D> friend class BTreeIterator;
         using keyType   = typename Traits::value_type;
         using ObjIDType = typename Traits::ObjIDType;
         using Node      = typename Traits::Node;
@@ -108,14 +231,8 @@ class CBTreePage
 
        bt_ErrorCode    Insert (const keyType &key, const ObjIDType ObjID);
        bt_ErrorCode    Remove (const keyType &key, const ObjIDType ObjID);
-       TF            Search (const keyType &key, ObjIDType &ObjID);
+       TF              Search (const keyType &key, ObjIDType &ObjID);
        void            Print  (ostream &os);
-
-       template <typename Func, typename... Args>
-       void ForEach(size_t level, Func func, Args &&... args);
-       template <typename Func, typename... Args>
-       Node* FirstThat( size_t level, Func func, Args &&... args);
-
 protected:
        size_t  m_MinKeys; // minimum number of keys in a node
        size_t  m_MaxKeys, // maximum number of keys in a node
@@ -159,6 +276,10 @@ protected:
 
        size_t GetFreeCellsOnLeft(size_t pos);
        size_t GetFreeCellsOnRight(size_t pos);
+       template <typename Func, typename... Args>
+       void ForEach(size_t level, Func func, Args &&... args);
+       template <typename Func, typename... Args>
+       Node* FirstThat( size_t level, Func func, Args &&... args);
 
 private:
        TF SplitRoot();
@@ -512,11 +633,11 @@ void CBTreePage<Traits>::ForEach( size_t level, Func func, Args &&... args)
        for( size_t i = 0 ; i < m_KeyCount ; i++)
        {
                if( m_SubPages[i] )
-                       m_SubPages[i]->ForEach( level+1, func, std::forward<Args>(args)...);
+                       m_SubPages[i]->ForEach( level+1, func, forward<Args>(args)...);
                func(m_Keys[i], level, args...);
        }
        if( m_SubPages[m_KeyCount] )
-               m_SubPages[m_KeyCount]->ForEach( level+1, func, args...);
+               m_SubPages[m_KeyCount]->ForEach( level+1, func, forward<Args>(args)...);
 }
 
 template <typename Traits>

@@ -2,7 +2,8 @@
 #define __FOREACH_H__
 #include <iostream>
 #include <utility> // forward
-
+#include <type_traits>
+#include <functional>
 using namespace std;
 
 template <typename Iterator, typename Func, typename... Args>
@@ -30,4 +31,20 @@ void ForEach(Container& v1, Func func, Args &&... args){
     ForEach(v1.begin(), v1.end(), func, forward<Args>(args)...);
 }
 
+
+template<typename Iter, typename Func, typename... Args>
+decltype(auto) walk(Iter begin, Iter end, Func func, Args&&... args){
+    using resultType= invoke_result_t<Func,decltype(*begin),Args...>;
+    constexpr bool is_void = is_void_v<resultType>;
+    for(auto it = begin; it !=end ; ++it){
+        if constexpr (is_void){
+            invoke(func,*it,forward<Args>(args)...);
+        }else{
+            if(invoke(func,*it,forward<Args>(args)...)) 
+            return it;
+        }
+    }
+    if constexpr(!is_void)
+        return end;
+}
 #endif // __FOREACH_H__
