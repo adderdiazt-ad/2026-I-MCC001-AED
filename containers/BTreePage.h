@@ -20,7 +20,12 @@
 using namespace std;
 template <typename _keyType, typename _ObjIDType>
 struct tagNode;
-
+/**
+ * @struct BTreeTraits
+ * @brief Define los tipos asociados que utilizará el Árbol B.
+ * @tparam _keyType Tipo de dato de la clave de indexación.
+ * @tparam _ObjIDType Tipo de dato del identificador del objeto.
+ */
 template<typename _keyType, typename _ObjIDType>
 struct BTreeTraits{
        using value_type     = _keyType;
@@ -28,20 +33,32 @@ struct BTreeTraits{
        using Node           = tagNode<value_type, ObjIDType>;
        //using Comp = less<value_type>;
 };
-
+/**
+ * @struct Forward
+ * @brief Política de iteración hacia adelante.
+ */
 struct Forward {
     static constexpr TF is_forward = true;
     static size_t extreme_child      (size_t keyCount) { return 0; }
     static size_t extreme_key        (size_t keyCount) { return 0; }
 };
-
+/**
+ * @struct Backward
+ * @brief Política de iteración hacia atrás.
+ */
 struct Backward {
-    static constexpr TF is_forward = false;
-    static size_t extreme_child      (size_t keyCount) { return keyCount; }
-    static size_t extreme_key        (size_t keyCount) { return keyCount - 1; }
+    static constexpr TF is_forward = false; /**< Indica que la dirección es hacia atrás. */
+    static size_t extreme_child      (size_t keyCount) { return keyCount; } /**< Devuelve el índice del hijo más a la derecha. */
+    static size_t extreme_key        (size_t keyCount) { return keyCount - 1; } /**< Devuelve el índice de la última clave. */
 };
 template <typename Traits>
 class BTree;
+/**
+ * @class BTreeIterator
+ * @brief Iterador para recorrer el Árbol B.
+ * @tparam Traits Tipos asociados del árbol.
+ * @tparam Direction Política de dirección (Forward o Backward).
+ */
 template <typename Traits, typename Direction>
 class BTreeIterator : public general_iterator<BTree<Traits>, BTreeIterator<Traits, Direction>> 
 {
@@ -52,21 +69,53 @@ public:
     using IndexType = size_t;
 
 private:
+        /**
+     * @struct PathNode
+     * @brief Representa un nodo en el camino recorrido por el iterador.
+     */
+
     struct PathNode {
-        ptrPage page;
-        IndexType index;
+        ptrPage page;/**< Puntero a la página del árbol. */
+        IndexType index; /**< Índice de la clave actual en la página. */
     };
-    static constexpr size_t MAX_HEIGHT = 16;
-    array<PathNode, MAX_HEIGHT> m_path;
-    size_t m_level;
+    static constexpr size_t MAX_HEIGHT = 16; /**< Altura máxima soportada para el iterador. */
+    array<PathNode, MAX_HEIGHT> m_path; /**< Pila que almacena el camino desde la raíz. */
+    size_t m_level;                     /**< Nivel actual en el camino. */
+    /**
+     * @brief Obtiene el nivel actual del iterador.
+     * @return Nivel en el árbol.
+     */
     size_t getLevel() {return m_level;}
+    /**
+     * @brief Actualiza el puntero base al nodo actual al que apunta el iterador.
+     */
     void update_base_node();
+    /**
+     * @brief Avanza el iterador a la siguiente clave (orden ascendente).
+     */
     void forward();
+    /**
+     * @brief Retrocede el iterador a la clave anterior (orden descendente).
+     */
     void backward();
 
 public:
+/**
+     * @brief Constructor por defecto.
+     */
     BTreeIterator() : Base(nullptr, nullptr), m_level(0) {m_path[0] = {nullptr, 0};}
+    
+    /**
+     * @brief Constructor que inicializa el iterador en una raíz específica.
+     * @param pContainer Puntero al árbol contenedor.
+     * @param root Puntero a la página raíz.
+     */
     BTreeIterator(Container* pContainer, ptrPage root);
+    
+    /**
+     * @brief Sobrecarga del operador de preincremento.
+     * @return Referencia al iterador modificado.
+     */
     BTreeIterator& operator++() 
     {
         if (!this->m_pNode || !m_path[m_level].page) return *this;
@@ -150,6 +199,17 @@ void BTreeIterator<Traits,Direction>::backward(){
 }
 // Si no lo encuentra, deberia decirme:
 // cual es la posicion donde deberia estar
+
+/**
+ * @brief Búsqueda binaria genérica dentro de un contenedor.
+ * @tparam Container Tipo del contenedor.
+ * @tparam ObjType Tipo del objeto a buscar.
+ * @param container Contenedor donde buscar.
+ * @param first Índice inicial.
+ * @param last Índice final.
+ * @param object Objeto a buscar.
+ * @return Posición donde se encuentra o debería insertarse el objeto.
+ */
 template <typename Container, typename ObjType>
 size_t binary_search(Container& container, size_t first, size_t last, ObjType &object)
 {
@@ -170,6 +230,14 @@ size_t binary_search(Container& container, size_t first, size_t last, ObjType &o
        return last;
 }
 
+/**
+ * @brief Inserta un objeto en una posición específica de un contenedor, desplazando el resto.
+ * @tparam Container Tipo del contenedor.
+ * @tparam ObjType Tipo del objeto.
+ * @param container Contenedor destino.
+ * @param object Objeto a insertar.
+ * @param pos Posición de inserción.
+ */
 template <typename Container, typename ObjType>
 void insert_at(Container& container, const ObjType &object, size_t pos)
 {
@@ -180,6 +248,12 @@ void insert_at(Container& container, const ObjType &object, size_t pos)
        container[pos] =  object;
 }
 
+/**
+ * @brief Elimina un elemento de un contenedor desplazando los elementos siguientes.
+ * @tparam Container Tipo del contenedor.
+ * @param container Contenedor origen.
+ * @param pos Posición a eliminar.
+ */
 template <typename Container>
 void remove(Container& container, size_t pos)
 {
@@ -188,8 +262,18 @@ void remove(Container& container, size_t pos)
                container[i-1] = container[i];
 }
 
-
-enum bt_ErrorCode {bt_ok, bt_overflow, bt_underflow, bt_duplicate, bt_nofound, bt_rootmerged};
+/**
+ * @enum bt_ErrorCode
+ * @brief Códigos de error y estado para las operaciones del Árbol B.
+ */
+enum bt_ErrorCode {
+        bt_ok,          /**< Operación exitosa. */
+        bt_overflow,    /**< Desbordamiento de página (necesita división). */
+        bt_underflow,   /**< Subdesbordamiento de página (necesita fusión o redistribución). */
+        bt_duplicate,   /**< Clave duplicada encontrada. */
+        bt_nofound,     /**< Clave no encontrada. */
+        bt_rootmerged   /**< La raíz fue fusionada y la altura del árbol disminuye. */
+};
 
 /*template <typename keyType>
 bool operator>=(const _Node<keyType>& object1, const _Node<keyType>& object2)
@@ -199,12 +283,18 @@ template <typename keyType>
 bool operator<=(const _Node<keyType>& object1, const _Node<keyType>& object2)
 { return object1.key <= object2.key;    }*/
 
+/**
+ * @struct tagNode
+ * @brief Representa un elemento individual (clave-valor) almacenado en una página.
+ * @tparam keyType Tipo de la clave.
+ * @tparam ObjIDType Tipo del identificador del objeto.
+ */
 template <typename keyType, typename ObjIDType>
 struct tagNode
 {
-       keyType                 key;
-       ObjIDType               ObjID;
-       size_t                  UseCounter;
+       keyType                 key;         /**< Clave de indexación. */
+       ObjIDType               ObjID;       /**< Identificador del objeto asociado. */
+       size_t                  UseCounter;  /**< Contador de uso del nodo. */
        tagNode(const keyType &_key, ObjIDType _ObjID)
                : key(_key), ObjID(_ObjID), UseCounter(0) {}
        tagNode(){}
@@ -215,6 +305,11 @@ struct tagNode
        
 };
 
+/**
+ * @class CBTreePage
+ * @brief Representa una página (nodo) del Árbol B en memoria.
+ * @tparam Traits Estructura de traits.
+ */
 template <typename Traits>
 class CBTreePage 
 // this is the in-memory version of the CBTreePage
@@ -226,6 +321,11 @@ class CBTreePage
         using Node      = typename Traits::Node;
         using BTPage    =  CBTreePage<Traits>;// useful shorthand
  public:
+       /**
+        * @brief Constructor de la página.
+        * @param maxKeys Cantidad máxima de claves.
+        * @param unique Indica si no permite duplicados.
+        */
        CBTreePage(size_t maxKeys, TF unique = true);
        virtual ~CBTreePage();
 
@@ -234,55 +334,128 @@ class CBTreePage
        TF              Search (const keyType &key, ObjIDType &ObjID);
        void            Print  (ostream &os);
 protected:
-       size_t  m_MinKeys; // minimum number of keys in a node
-       size_t  m_MaxKeys, // maximum number of keys in a node
-                m_MaxKeysForChilds; // just to distinguish the root
-       TF m_Unique;
-       TF m_isRoot;
-       vector<Node>       m_Keys;
-       vector<BTPage *>   m_SubPages;
-       size_t  m_KeyCount;
+       size_t  m_MinKeys;          /**< Número mínimo de claves en el nodo. */
+       size_t  m_MaxKeys;          /**< Número máximo de claves en el nodo. */
+       size_t  m_MaxKeysForChilds; /**< Máximo de claves para páginas hijas (distingue raíz). */
+       TF m_Unique;                /**< Flag para restringir duplicados. */
+       TF m_isRoot;                /**< Flag para identificar si es nodo raíz. */
+       vector<Node>       m_Keys;      /**< Array de claves del nodo. */
+       vector<BTPage *>   m_SubPages;  /**< Array de punteros a hijos. */
+       size_t  m_KeyCount;             /**< Cantidad actual de claves almacenadas. */
+
+       /** @brief Inicializa los vectores de la página. */
        void  Create();
+
+       /** @brief Libera la memoria de las subpáginas. */
        void  Reset ();
+
+       /** @brief Resetea y destruye la instancia actual. */
        void  Destroy () {   Reset(); delete this;}
+
+       /** @brief Limpia el contador de claves sin borrar memoria. */
        void  clear ();
 
+       /**
+        * @brief Intenta redistribuir claves con un hermano adyacente.
+        * @param pos Índice del hijo que sufrió el underflow o overflow.
+        * @return true si la redistribución fue exitosa.
+        */
        TF  Redistribute1   (size_t &pos);
+       /**
+        * @brief Intenta redistribuir claves considerando los dos hermanos adyacentes.
+        * @param pos Índice del hijo conflictivo.
+        * @return true si la redistribución cruzada fue exitosa.
+        */
        TF  Redistribute2   (size_t pos);
+
+       /**
+        * @brief Mueve claves de la página hermana derecha a la izquierda (Right to Left).
+        * @param pos Índice de la página de origen en m_SubPages.
+        */
        void  RedistributeR2L (size_t pos);
+
+       /**
+        * @brief Mueve claves de la página hermana izquierda a la derecha (Left to Right).
+        * @param pos Índice de la página de origen en m_SubPages.
+        */
        void  RedistributeL2R (size_t pos);
 
+       /**
+        * @brief Gestiona una condición de subdesbordamiento intentando redistribuciones.
+        * @param pos Índice del hijo con underflow.
+        * @return true si se resolvió el underflow.
+        */
        TF    TreatUnderflow  (size_t &pos)
        {       return Redistribute1(pos) || Redistribute2(pos);}
-
+       
+       /**
+        * @brief Fusiona (merge) un nodo hijo con uno de sus hermanos.
+        * @param pos Índice del hijo.
+        * @return Código de error (bt_ok o bt_underflow si esto causó underflow en el padre).
+        */
        bt_ErrorCode    Merge  (size_t pos);
-       bt_ErrorCode    MergeRoot ();
-       void  SplitChild (size_t pos);
 
+       /**
+        * @brief Fusiona los hijos de la raíz cuando su capacidad se reduce al mínimo.
+        * @return bt_rootmerged si la raíz fue colapsada.
+        */
+       bt_ErrorCode    MergeRoot ();
+
+       /**
+        * @brief Divide (split) una página hija que ha excedido su límite de claves (overflow).
+        * @param pos Índice del hijo que será dividido.
+        */
+       void  SplitChild (size_t pos);
+       
+       /**
+        * @brief Obtiene el primer nodo (más a la izquierda) en este subárbol.
+        * @return Referencia al nodo más pequeño.
+        */
        Node &GetFirstNode();
 
-       TF Overflow()  { return m_KeyCount > m_MaxKeys; }
-       TF Underflow() { return m_KeyCount < MinNumberOfKeys(); }
-       TF IsFull()    { return m_KeyCount >= m_MaxKeys; }
-       size_t  MinNumberOfKeys()  { return 2*m_MaxKeys/3.0; }
-       size_t  GetFreeCells()  { return m_MaxKeys - m_KeyCount; }
-       size_t& NumberOfKeys()  { return m_KeyCount; }
-       size_t  GetNumberOfKeys()  { return m_KeyCount; }
-       TF IsRoot()  { return m_MaxKeysForChilds != m_MaxKeys; }
+       // --- Funciones auxiliares de estado ---
+       TF Overflow()  { return m_KeyCount > m_MaxKeys; } /**< Evalúa si hay desbordamiento. */
+       TF Underflow() { return m_KeyCount < MinNumberOfKeys(); } /**< Evalúa si hay subdesbordamiento. */
+       TF IsFull()    { return m_KeyCount >= m_MaxKeys; } /**< Evalúa si la página está llena. */
+       size_t  MinNumberOfKeys()  { return 2*m_MaxKeys/3.0; } /**< Calcula el número mínimo permitido de claves. */
+       size_t  GetFreeCells()  { return m_MaxKeys - m_KeyCount; } /**< Devuelve la cantidad de espacios libres. */
+       size_t& NumberOfKeys()  { return m_KeyCount; } /**< Retorna referencia a la cantidad de claves. */
+       size_t  GetNumberOfKeys()  { return m_KeyCount; } /**< Retorna el número de claves. */
+       TF IsRoot()  { return m_MaxKeysForChilds != m_MaxKeys; } /**< Evalúa si es el nodo raíz (por configuración de capacidad). */
+       
+       /**
+        * @brief Ajusta el número máximo de claves que tendrán las páginas descendientes.
+        * @param orderforchilds Nuevo límite máximo.
+        */
        void SetMaxKeysForChilds(size_t orderforchilds)
        {
                m_MaxKeysForChilds = orderforchilds;
        }
 
-       size_t GetFreeCellsOnLeft(size_t pos);
-       size_t GetFreeCellsOnRight(size_t pos);
+       size_t GetFreeCellsOnLeft(size_t pos);  /**< Obtiene espacios libres en el hermano izquierdo. */
+       size_t GetFreeCellsOnRight(size_t pos); /**< Obtiene espacios libres en el hermano derecho. */
        template <typename Func, typename... Args>
        void ForEach(size_t level, Func func, Args &&... args);
        template <typename Func, typename... Args>
        Node* FirstThat( size_t level, Func func, Args &&... args);
 
 private:
+       /**
+        * @brief Divide el nodo raíz en tres nodos cuando se desborda.
+        * @return true si la división fue exitosa.
+        */
        TF SplitRoot();
+
+       /**
+        * @brief Función de soporte para dividir el contenido de páginas excedidas en tres páginas distintas.
+        * @param tmpKeys Vector temporal consolidado de claves.
+        * @param SubPages Vector temporal consolidado de punteros a hijos.
+        * @param[out] pChild1 Primera nueva página.
+        * @param[out] pChild2 Segunda nueva página.
+        * @param[out] pChild3 Tercera nueva página.
+        * @param[out] oi1 Clave que asciende al padre (promoción 1).
+        * @param[out] oi2 Clave que asciende al padre (promoción 2).
+        */
        void SplitPageInto3(vector<Node>   & tmpKeys,
                                                vector<BTPage *>  & SubPages,
                                                BTPage           *& pChild1,
@@ -290,6 +463,13 @@ private:
                                                BTPage           *& pChild3,
                                                Node        & oi1,
                                                Node        & oi2);
+        
+       /**
+        * @brief Mueve todo el contenido de una página hija hacia los vectores temporales (usado en merge y splits).
+        * @param pChildPage Página de origen.
+        * @param[out] tmpKeys Vector destino para claves.
+        * @param[out] tmpSubPages Vector destino para punteros.
+        */
        void MovePage(BTPage *  pChildPage,vector<Node> & tmpKeys,vector<BTPage *> & tmpSubPages);
 };
 

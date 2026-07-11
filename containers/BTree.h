@@ -12,6 +12,12 @@
 #define DEFAULT_BTREE_ORDER 3
 using namespace std;
 
+/**
+ * @class BTree
+ * @brief Estructura principal del Árbol B (B-Tree).
+ * Contenedor genérico thread-safe para operaciones de búsqueda, inserción y eliminación.
+ * @tparam Traits Estructura con tipos (value_type, ObjIDType, Node).
+ */
 template <typename Traits>
 class BTree {
 public:
@@ -24,22 +30,71 @@ public:
         using backwardIterator  =   BTreeIterator<Traits,Backward>;
 
 public:
+       /**
+        * @brief Constructor del árbol.
+        * @param order Orden del árbol (determina capacidad máxima = 2*order).
+        * @param unique Limita a valores únicos.
+        */
        BTree(size_t order = DEFAULT_BTREE_ORDER, TF unique = true);
+       /**
+        * @brief Destructor del árbol.
+        */
        ~BTree();
+
+       /**
+        * @brief Inserta un elemento en el árbol. Protegido por un mutex recursivo.
+        * @param key Clave de indexación.
+        * @param ObjID Identificador del objeto a almacenar.
+        * @return true si la inserción fue exitosa, false si la clave es un duplicado no permitido.
+        */
        TF            Insert (const keyType key, const ObjIDType ObjID);
+       
+       /**
+        * @brief Elimina un elemento del árbol. Protegido por un mutex recursivo.
+        * @param key Clave de indexación.
+        * @param ObjID Identificador del objeto a eliminar.
+        * @return true si la eliminación fue exitosa, false si la clave no se encuentra.
+        */
        TF            Remove (const keyType key, const ObjIDType ObjID);
+       
+       /**
+        * @brief Realiza la búsqueda de una clave. Protegido por mutex.
+        * @param key Clave buscada.
+        * @return Identificador del objeto si se encuentra, o -1 en caso de error.
+        */
        auto          Search (const keyType key);
+       
+       /** @brief Retorna el número de elementos contenidos. Thread-safe. */
        size_t        size()         {scoped_lock<recursive_mutex> lock(m_tree_mutex); return m_NumKeys; }
+       
+       /** @brief Retorna la altura (profundidad) del árbol. Thread-safe. */
        size_t        height()       {scoped_lock<recursive_mutex> lock(m_tree_mutex); return m_Height;  }
+       
+       /** @brief Devuelve el orden con el que se inicializó el árbol. */
        size_t        GetOrder()     { return m_Order;   }
-       string        to_string(); 
+       
+       /**
+        * @brief Serializa el contenido del árbol a una cadena de texto.
+        * @return Representación en formato string (clave->valor).
+        */
+       string        to_string();
+       
+       /**
+        * @brief Imprime la topología del árbol en el flujo dado mostrando niveles jerárquicos.
+        * @param os Flujo de salida estándar u archivo.
+        */
        void          printGraphic (ostream &os);
 
        auto         beginForward()  {return forwardIterator(this,&m_Root);}
        auto         endForward()    {return forwardIterator();}
        auto         beginBackward() {return backwardIterator(this,&m_Root);}
        auto         endBackward()   {return backwardIterator();}
-       
+    
+    /**
+     * @struct rangeView
+     * @brief Estructura de utilidad para gestionar la iteración bloqueando el árbol para concurrencia.
+     * @tparam Iterator Tipo de iterador usado (Forward/Backward).
+     */
     template <typename Iterator>
     struct rangeView {
         Iterator m_begin;
@@ -55,16 +110,20 @@ public:
             return ::walk(m_begin, m_end, func, std::forward<Args>(args)... );
         }
     };
+
+    /** @brief Genera una vista de rango para recorrido de inicio a fin. */
     auto forward() {return rangeView<forwardIterator>(beginForward(),endForward(),m_tree_mutex);}
+    
+    /** @brief Genera una vista de rango para recorrido de fin a inicio. */
     auto backward(){return rangeView<backwardIterator>(beginBackward(),endBackward(),m_tree_mutex);}
 
 protected:
-       BTNode          m_Root;
-       size_t          m_Height;  // height of tree
-       size_t          m_Order;   // order of tree
-       size_t          m_NumKeys; // number of keys
-       TF              m_Unique;  // Accept the elements only once ?
-       recursive_mutex m_tree_mutex;
+       BTNode          m_Root;        /**< Instancia del nodo raíz (CBTreePage). */
+       size_t          m_Height;      /**< Altura actual del árbol B. */
+       size_t          m_Order;       /**< Orden configurado. */
+       size_t          m_NumKeys;     /**< Contador total de las claves almacenadas. */
+       TF              m_Unique;      /**< Bandera que indica si el árbol acepta datos repetidos. */
+       recursive_mutex m_tree_mutex;  /**< Mutex que serializa los accesos y modificaciones en el árbol. */
 };
 
 const size_t MaxHeight = 5;
