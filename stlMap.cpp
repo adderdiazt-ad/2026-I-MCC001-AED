@@ -2,37 +2,49 @@
 #include <map>
 #include <string>
 #include "types.h"
+
+
 int main() {
-    
-    std::map<std::string, TI> torneo;
+    // Definimos el mapa: Producto (Clave) -> Precio (Valor)
+    std::map<std::string, TD> catalogo;
 
-    std::cout << "1. INICIALIZANDO TORNEO...\n";
-    
-    torneo.emplace("Zelda", 1500);
-    torneo.emplace("Mario", 2100);
-    torneo.emplace("Aloy", 1850);
-    torneo.emplace("Kratos", 3000);
+    catalogo.emplace("Tablet", 299.99);
+    catalogo.emplace("Laptop", 999.50);
+    catalogo.emplace("Monitor", 150.75);
+    catalogo.emplace("Teclado", 45.00);
+    catalogo.emplace("Raton", 25.50);
+    catalogo.emplace("Auriculares", 80.00);
 
-    torneo["Mario"] += 100;  
-    torneo["Samus"] = 2500;   // si no existe la clave entonces lo crea
+    catalogo["Teclado"] = 40.00; // El operador [] actualiza el valor si la clave ya existe
 
-  
-    try {
-        torneo.at("Aloy") += 50;/// .at lanza una excepción si no existe la clave
-        
-    } catch (const std::out_of_range& e) {
-        std::cout << "Error: Intentaste modificar un jugador que no existe.\n";
+    std::cout << "1. BUSQUEDA EXACTA (find)\n";
+    std::cout << "---------------------------------\n";
+    auto it_buscar = catalogo.find("Laptop");
+    if (it_buscar != catalogo.end()) {
+        std::cout << "Encontrado: " << it_buscar->first << " a $" << it_buscar->second << "\n\n";
     }
 
-  
-    torneo.erase("Mario"); // Mario es descalificado y borrado del árbol
 
-
-    std::cout << "\n3. TABLA DE POSICIONES FINAL:\n";
+    std::cout << "2. BUSQUEDA POR RANGOS (De Laptop a Tablet)\n";
     std::cout << "---------------------------------\n";
     
-    for (const auto& [nombre, puntaje] : torneo) {
-        std::cout << nombre << " \t : " << puntaje << " pts\n";
+    auto it_inicio = catalogo.lower_bound("Laptop"); // Apunta a "Laptop" (o al siguiente mayor si no existiera)
+    auto it_fin = catalogo.upper_bound("Tablet");    // Apunta al elemento estrictamente DESPUES de "Tablet"
+
+  
+    for (auto it = it_inicio; it != it_fin; ++it) {
+        std::cout << it->first << " : $" << it->second << "\n";
+    }
+    std::cout << "\n";
+
+
+    catalogo.erase("Raton"); // Producto descontinuado
+
+    // 5. ITERACIÓN COMPLETA
+    std::cout << "3. CATALOGO FINAL (Orden Alfabetico Garantizado)\n";
+    std::cout << "---------------------------------\n";
+    for (const auto& [producto, precio] : catalogo) {
+        std::cout << producto << " \t : $" << precio << "\n";
     }
 
     return 0;

@@ -58,11 +58,10 @@ for N in cargas:
     ec = N - M * (1 - math.exp(-alpha))
     colisiones_teoricas.append(ec)
     
-    # B. Simular colisiones con el Hash Bueno
+    
     cb = contar_colisiones(hash_bueno, claves_con_patron, M)
     colisiones_reales_bueno.append(cb)
-    
-    # C. Simular colisiones con el Hash Malo
+   
     cm = contar_colisiones(hash_malo, claves_con_patron, M)
     colisiones_reales_malo.append(cm)
 
